@@ -27,7 +27,9 @@ export function questionScope(root, facts) {
       'Outside regions group repository-relative paths by their first directory (root files keep their names). These are path facts, not subsystem responsibilities.',
     ],
   };
-  const git = (cwd, args) => spawnSync('git', ['-C', cwd, ...args], {
+  // The analysed repository's config is untrusted: reading its index would run a
+  // configured core.fsmonitor command. An empty value disables it on every Git version.
+  const git = (cwd, args) => spawnSync('git', ['-c', 'core.fsmonitor=', '-C', cwd, ...args], {
     encoding: 'utf8', timeout: 2000, maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1' },
   });

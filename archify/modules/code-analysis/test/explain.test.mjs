@@ -221,7 +221,10 @@ test('question scope distinguishes a subdirectory from its Git root and works in
   git('add', '--', 'source', 'viewer', 'scripts', 'website', 'integrations', 'README.md');
   git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgSign=false', 'commit', '-qm', 'fixture');
   fs.writeFileSync(path.join(args.dir, 'untracked.mjs'), 'export {};\n');
+  const marker = path.join(args.dir, 'fsmonitor-ran');
+  git('config', 'core.fsmonitor', `echo ran > "${marker.split(path.sep).join('/')}"`);
   const scope = buildQuestion(args).scope;
+  assert.equal(fs.existsSync(marker), false, 'repository-configured fsmonitor command must not run');
   assert.equal(scope.git.status, 'known');
   assert.equal(scope.git.repositoryRoot, fs.realpathSync(args.dir));
   assert.equal(scope.git.analysisPath, 'source');
