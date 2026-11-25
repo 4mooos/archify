@@ -25,6 +25,7 @@ export function runGit(repoRoot, args) {
   const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, ...args], {
     encoding: 'utf8',
     maxBuffer: MAX_SOURCE_BYTES,
+    windowsHide: true,
     // Older Git may ignore NO_LAZY_FETCH; no transport is needed for local reads.
     env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '' },
   });

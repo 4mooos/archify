@@ -1,7 +1,6 @@
 import { softwareNoticesHtml } from '../renderers/shared/software-notices.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
-import {execFileSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {compileBrief,draftBrief,nativeMotions,openingModes,MAX_BRIEF_EXCERPT_LINES} from './story-plan.mjs';
@@ -9,6 +8,7 @@ import {resolveOutputPath} from '../renderers/shared/output-path.mjs';
 import {writeStoryOutput,rollbackStoryOutput} from './output.mjs';
 import {parse,serializeOuter} from './vendor/html-parser.mjs';
 import {attachStory} from './story-attachment.mjs';
+import {runGit} from '../renderers/shared/repository-evidence.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
@@ -84,7 +84,9 @@ function excerpt(spec,anchor,facts,repoRoot){
   const revision=facts.repository?.revision,root=repoRoot;
   if(!source||!root||!/^[a-f0-9]{40}$/i.test(revision||''))throw Error('Code requires a verified node source and an explicit --repo-root.');
   if(!source.path||path.isAbsolute(source.path)||source.path.split(/[\\/]/).includes('..')||/[\0\r\n:]/.test(source.path))throw Error('Invalid repository source path.');
-  const content=execFileSync('git',['show','--no-textconv',`${revision}:${source.path}`],{cwd:root,encoding:'utf8',maxBuffer:2*1024*1024,windowsHide:true});
+  const read=runGit(root,['cat-file','blob',`${revision}:${source.path}`]);
+  if(read.status!==0)throw Error(`Could not read ${source.path} at ${revision.slice(0,7)}: ${(read.stderr||'').trim()||'source not found'}.`);
+  const content=read.stdout;
   if(content.includes('\0'))throw Error('Code excerpts require text files.');
   const lines=content.split(/\r?\n/),first=source.line||1,last=source.endLine||lines.length;
   const from=spec.fromLine??first,to=spec.toLine??Math.min(last,from+13);

@@ -232,6 +232,27 @@ test('authored figure captions and code references reach the presentation with p
   assert.equal(run(['attach',input,file,output,'--repo-root',repo.root],dir).status,1);assert.deepEqual(fs.readFileSync(output),previous);
 });
 
+test('code excerpts read pinned blobs locally without lazy fetch or replacement refs',t=>{
+  const dir=workspace(t),repo=repositoryFixture(),input=path.join(dir,'source.html'),file=path.join(dir,'brief.json'),output=path.join(dir,'enhanced.html');
+  t.after(()=>fs.rmSync(repo.root,{recursive:true,force:true}));
+  execFileSync(process.execPath,[cli,'render','architecture',repo.input,input,'--repo-root',repo.root]);
+  const facts=scanStory(input),plan=brief(facts),point=plan.scenes[0].points[0];
+  point.anchor=facts.nodes.find(node=>node.sources.length).id;point.code={fromLine:1,toLine:3};fs.writeFileSync(file,JSON.stringify(plan));
+  const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8'}).trim();
+  const blob=git(repo.root,'rev-parse',`${repo.revision}:src/router.js`),fake=execFileSync('git',['hash-object','-w','--stdin'],{cwd:repo.root,input:'replaced\n',encoding:'utf8'}).trim();
+  git(repo.root,'replace',blob,fake);
+  const replaced=run(['attach',input,file,output,'--repo-root',repo.root],dir);assert.equal(replaced.status,0,replaced.stdout+replaced.stderr);
+  assert.match(embedded(fs.readFileSync(output,'utf8')),/export function route\(input\)/);fs.rmSync(output);
+  git(repo.root,'config','uploadpack.allowFilter','true');
+  const partial=path.join(dir,'partial'),helpers=path.join(dir,'helpers'),trace=path.join(dir,'transport.log');
+  git(repo.root,'clone','--filter=blob:none','--no-checkout',pathToFileURL(repo.root).href,partial);
+  git(partial,'remote','set-url','origin','https://github.com/example/evidence-repo');
+  fs.mkdirSync(helpers);fs.writeFileSync(path.join(helpers,'git-remote-https'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$ARCHIFY_TRANSPORT_TRACE"\nexit 99\n',{mode:0o755});
+  const result=spawnSync(process.execPath,[cli,'story','attach',input,file,output,'--repo-root',partial,'--json'],{cwd:dir,encoding:'utf8',env:{...process.env,NODE_PATH:'',ARCHIFY_UPDATE_CHECK_DISABLED:'1',GIT_EXEC_PATH:helpers,GIT_NO_LAZY_FETCH:'0',ARCHIFY_TRANSPORT_TRACE:trace.replaceAll('\\','/')}});
+  assert.equal(result.status,1,result.stdout+result.stderr);assert.match(result.stdout,/Could not read src\/router\.js/);
+  assert.equal(fs.existsSync(trace),false,'an excerpt read must not start a remote transport');assert.equal(fs.existsSync(output),false);
+});
+
 test('a package-only copy runs the full story chain outside the repository without dependencies',t=>{
   const dir=workspace(t),pack=path.join(dir,'package'),outside=path.join(dir,'outside');fs.mkdirSync(outside);
   fs.cpSync(skill,pack,{recursive:true,filter:file=>!path.relative(skill,file).split(path.sep).some(part=>part==='node_modules'||part==='test'||part.startsWith('.validator-check-'))});
