@@ -392,8 +392,11 @@ of every build profile.
 
 These are the defaults when `enabled` is true. `executable` defaults to `jscpd`
 on PATH; a relative path containing a directory separator is resolved from the
-caller's working directory. On Windows select the native `.exe`, not an npm
-`.cmd` launcher. No detector is downloaded or installed by an analysis run.
+caller's working directory. Archify resolves a bare name itself, using only
+absolute PATH entries other than the working directory and directories inside
+the analysed repository, and runs the resulting absolute path. On Windows select
+the native `.exe`, not an npm `.cmd` launcher. No detector is downloaded or
+installed by an analysis run.
 When the block is absent, `enabled` is false, or `ignore` includes
 `redundancy/duplicate-block`, the optional executable is not probed or run.
 The selected language's extraction prerequisites above still apply. C6 adds

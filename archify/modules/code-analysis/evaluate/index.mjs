@@ -15,12 +15,12 @@ const PACKAGE = JSON.parse(fs.readFileSync(new URL('../package.json', import.met
 export { RULES };
 export { analyzeDuplicates, layerCounts, duplicateOptions, DUPLICATE_RULE, JSCPD_VERSION } from './rules/index.mjs';
 
-export function evaluate(graph, config = {}, facts = null) {
+export function evaluate(graph, config = {}, facts = null, { root = null } = {}) {
   const suppressed = new Set(config.ignore || []);
   const diagnostics = [];
   let suppressedCount = 0;
   const active = RULES.filter((rule) => !rule.enabled || rule.enabled(config, facts));
-  const duplicates = active.includes(duplicate) && !suppressed.has(duplicate.code) ? analyzeDuplicates(graph, config, facts) : null;
+  const duplicates = active.includes(duplicate) && !suppressed.has(duplicate.code) ? analyzeDuplicates(graph, config, facts, { root }) : null;
   for (const rule of active) {
     if (suppressed.has(rule.code)) { suppressedCount += 1; continue; }
     for (const finding of rule.run({ graph, config, facts, duplicates })) diagnostics.push({ id: '', ...finding });

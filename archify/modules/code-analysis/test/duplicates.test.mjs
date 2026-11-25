@@ -152,6 +152,38 @@ test('duplicates: missing executable is an analysis failure', t => {
   assert.throws(() => analyze(input, enabled(path.join(input.dir, 'not-installed'))), diagnostic('duplicates/tool-unavailable'));
 });
 
+test('duplicates: a bare executable is resolved on PATH, never from the working directory or analysed root', { skip: POSIX_ONLY }, t => {
+  const input = fixture(t);
+  const install = (dir) => {
+    fs.mkdirSync(dir, { recursive: true });
+    const tool = faultTool(dir, 'tool', `${REPORT_SETUP}fs.writeFileSync(reportFile, JSON.stringify(report));`);
+    const executable = path.join(dir, 'jscpd');
+    fs.writeFileSync(executable, fs.readFileSync(tool.executable, 'utf8').replace('#!/usr/bin/env node', `#!${process.execPath}`));
+    fs.chmodSync(executable, 0o755);
+    return { executable, calls: tool.calls };
+  };
+  const trusted = install(path.join(input.dir, 'trusted'));
+  const planted = install(path.join(input.root, 'tools'));
+  const cwd = process.cwd();
+  const original = process.env.PATH;
+  t.after(() => { process.chdir(cwd); process.env.PATH = original; });
+  const run = (PATH, options) => {
+    process.env.PATH = PATH;
+    return evaluateGraph(input.graph, { ...input.config, duplicates: enabled('jscpd') }, input.facts, options);
+  };
+
+  process.chdir(path.dirname(planted.executable));
+  for (const [PATH, options] of [[path.dirname(planted.executable), { root: input.root }], ['.', {}], [process.cwd(), {}]]) {
+    assert.throws(() => run(PATH, options), diagnostic('duplicates/tool-unavailable'));
+  }
+  assert.equal(fs.existsSync(planted.calls), false, 'no candidate from the analysed root or cwd ran');
+  assert.ok(run(['.', path.dirname(planted.executable), path.dirname(trusted.executable)].join(path.delimiter), { root: input.root }).analysis.duplicates);
+  assert.equal(fs.existsSync(planted.calls), false);
+  const calls = fs.readFileSync(trusted.calls, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.deepEqual(calls.map(call => call.args.includes('--version')), [true, false]);
+  assert.ok(calls.every(call => !call.cwd.startsWith(input.root)), 'neither invocation runs inside the analysed root');
+});
+
 test('duplicates: wrong version, process failure, and timeout cannot become empty findings', { skip: POSIX_ONLY }, t => {
   const input = fixture(t);
   const wrong = faultTool(input.dir, 'wrong-version', 'process.exit(0);', '5.4.2');

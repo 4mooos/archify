@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fail } from '../../../core/index.mjs';
+import { resolveCommandOnPath } from '../../../../../renderers/shared/command-path.mjs';
 
 export const JSCPD_VERSION = '5.4.3';
 export const DUPLICATE_RULE = 'redundancy/duplicate-block';
@@ -39,7 +40,7 @@ export function duplicateOptions(config = {}) {
   if (!['exact', 'consistent'].includes(options.identifiers)) invalid('identifiers', 'must be "exact" or "consistent".');
   if (typeof options.executable !== 'string' || !options.executable.trim() || options.executable.includes('\0')) invalid('executable', 'must name the jscpd executable.');
   // A scan changes cwd to its private snapshot. Resolve an explicitly relative
-  // executable once in the caller's cwd; a bare command still uses PATH.
+  // executable once in the caller's cwd; analyzeDuplicates looks a bare command up on PATH.
   if (!path.isAbsolute(options.executable) && /[\\/]/.test(options.executable)) options.executable = path.resolve(options.executable);
   return options;
 }
@@ -84,14 +85,23 @@ function point(buffer, source, native) {
   return { offset: prefix.length, line, column: prefix.length - prefix.lastIndexOf('\n') };
 }
 
-export function analyzeDuplicates(graph, config, facts) {
+export function analyzeDuplicates(graph, config, facts, { root = null } = {}) {
   const options = duplicateOptions(config);
   if (!options) return null;
   if (!facts || !Array.isArray(facts.files)) fail('duplicates/source-unavailable', 'Duplicate detection requires captured source facts.', { supportedFixes: ['extract the repository before evaluating duplicates'] });
   if (!EXTENSIONS[facts.repository?.language]) fail('duplicates/config-invalid', 'Duplicate detection supports JS/TS, Python, Java, Go and Rust analysis.', {
     subject: { language: facts.repository?.language }, supportedFixes: ['select ts, py, java, go or rust, or disable duplicate detection for this language'],
   });
-  const version = runTool(options, ['--version']);
+  // Never let the platform resolve a bare name: Windows would search the
+  // working directory, which may be the analysed repository, before PATH.
+  if (!path.isAbsolute(options.executable)) {
+    const found = resolveCommandOnPath(options.executable, { exclude: [process.cwd()], excludeWithin: [root] });
+    if (!found) fail('duplicates/tool-unavailable', 'jscpd is enabled but its executable was not found on PATH.', {
+      subject: { executable: options.executable }, supportedFixes: [`install jscpd ${JSCPD_VERSION} separately and set duplicates.executable to its absolute path`, 'set duplicates.enabled to false to leave C6 unchecked'],
+    });
+    options.executable = found;
+  }
+  const version = runTool(options, ['--version'], os.tmpdir());
   if (version !== `jscpd ${JSCPD_VERSION}`) fail('duplicates/tool-version', `Expected jscpd ${JSCPD_VERSION}, received ${version || 'no version'}.`, {
     supportedFixes: [`select a jscpd ${JSCPD_VERSION} executable`],
   });

@@ -106,7 +106,7 @@ export function evaluateGraph(graph, config, facts = null, { root = null } = {})
   const graphErrors = schemaErrors('module-graph', graph);
   if (graphErrors.length) fail('evaluate/input-schema-invalid', 'Input does not conform to module-graph.schema.json.', { evidence: { errors: graphErrors.slice(0, 20) }, supportedFixes: ['regenerate the module graph'] });
   validateFacts(graph, facts);
-  const findings = evaluate(graph, config, facts);
+  const findings = evaluate(graph, config, facts, { root });
   if (config?.external != null) {
     if (!root) fail('external/root-required', 'External diagnostic imports need the analyzed repository root.', { supportedFixes: ['pass { root } to evaluateGraph, or use code-analysis check/serve'] });
     const imported = importExternal({ root, config, facts });
