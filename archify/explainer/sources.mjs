@@ -1,9 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { throwDiagnosticError } from '../renderers/shared/diagnostics.mjs';
-import { verifyRepositoryEvidence } from '../renderers/shared/repository-evidence.mjs';
+import { throwDiagnosticError, withDiagnosticRecordingSuppressed } from '../renderers/shared/diagnostics.mjs';
+import { runGit, verifyRepositoryEvidence } from '../renderers/shared/repository-evidence.mjs';
 import { parseRepositoryRemote } from '../renderers/shared/repository-location.mjs';
 import { chartFromData, compileExplainerChart } from './charts.mjs';
 
@@ -66,8 +65,10 @@ function safePath(document, value, pointer, component) {
 }
 
 function gitBytes(document, repoRoot, args, pointer, limit = MAX_CODE_BYTES) {
-  const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, ...args], { maxBuffer: limit });
-  if (result.error || result.status !== 0 || !Buffer.isBuffer(result.stdout) || result.stdout.length > limit) {
+  // Share the evidence verifier's Git environment: repository-local reads never start a transport.
+  let result;
+  try { result = withDiagnosticRecordingSuppressed(() => runGit(repoRoot, args, 'buffer')); } catch {}
+  if (!result || result.status !== 0 || !Buffer.isBuffer(result.stdout) || result.stdout.length > limit) {
     fail(document, pointer, 'source', 'source-read', 'The pinned repository resource could not be read within the size limit.',
       'Use an available, readable source file smaller than 16 MiB.');
   }

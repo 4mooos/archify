@@ -147,6 +147,25 @@ test('cited repository locations carry their pinned lines, unverifiable ones sta
   await rejects(doc, {}, 'source-url', 'password');
 });
 
+test('derived repository reads in a partial clone missing HEAD never start a remote transport', async t => {
+  const data = fixture(t);
+  data.git('config', 'extensions.partialClone', 'origin');
+  data.git('config', 'remote.origin.promisor', 'true');
+  fs.rmSync(path.join(data.root, '.git/objects', data.revision.slice(0, 2), data.revision.slice(2)));
+  const helpers = path.join(data.root, '.git/test-helpers');
+  fs.mkdirSync(helpers);
+  fs.writeFileSync(path.join(helpers, 'git-remote-https'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$ARCHIFY_TRANSPORT_TRACE"\nexit 99\n', { mode: 0o755 });
+  const trace = path.join(data.root, '.git/transport.log');
+  const saved = Object.fromEntries(['GIT_EXEC_PATH', 'GIT_NO_LAZY_FETCH', 'ARCHIFY_TRANSPORT_TRACE'].map(key => [key, process.env[key]]));
+  t.after(() => { for (const [key, value] of Object.entries(saved)) if (value === undefined) delete process.env[key]; else process.env[key] = value; });
+  // The resolver must override the caller's lazy-fetch setting and allow no transport.
+  Object.assign(process.env, { GIT_EXEC_PATH: helpers, GIT_NO_LAZY_FETCH: '0', ARCHIFY_TRANSPORT_TRACE: trace.replaceAll('\\', '/') });
+  await rejects(document(null), { repoRoot: data.root }, 'source-read');
+  const cited = document(null); cited.panels[0].blocks = [];
+  assert.ok(!Object.hasOwn((await resolveExplainerSources(cited, { repoRoot: data.root })).sources.router, 'text'));
+  assert.equal(fs.existsSync(trace), false, 'resolving sources must not start a remote transport');
+});
+
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ1EAAAAASUVORK5CYII=', 'base64');
 function imageDocument(imagePath = 'images/tiny.png') {
   return { sources: [], panels: [{ id: 'images', blocks: [{ id: 'picture', type: 'image', path: imagePath, alt: 'A pixel' }] }] };

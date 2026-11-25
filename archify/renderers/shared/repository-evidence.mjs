@@ -20,10 +20,10 @@ function evidenceFailure(code, message, { subject = {}, evidence = {}, supported
   }]);
 }
 
-export function runGit(repoRoot, args) {
+export function runGit(repoRoot, args, encoding = 'utf8') {
   // 固定 SHA 的来源必须读取原始对象，不能使用本地 replacement refs 的替换内容。
   const result = spawnSync('git', ['--no-replace-objects', '-C', repoRoot, ...args], {
-    encoding: 'utf8',
+    encoding,
     maxBuffer: MAX_SOURCE_BYTES,
     // Older Git may ignore NO_LAZY_FETCH; no transport is needed for local reads.
     env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '' },
