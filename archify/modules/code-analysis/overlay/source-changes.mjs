@@ -2,11 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { TOOL_CWD } from '../core/index.mjs';
 
 const LIMIT = 64 * 1024 * 1024;
 function git(root, args, input) {
-  return spawnSync('git', ['--no-replace-objects', '-C', root, ...args], {
-    input, maxBuffer: LIMIT, timeout: 10000,
+  return spawnSync('git', ['--no-replace-objects', '-C', path.resolve(root), ...args], {
+    cwd: TOOL_CWD, input, maxBuffer: LIMIT, timeout: 10000,
     env: { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_OPTIONAL_LOCKS: '0' },
   });
 }

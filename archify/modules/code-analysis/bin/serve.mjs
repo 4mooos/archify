@@ -21,7 +21,7 @@ import { randomBytes } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { DiagnosticError, fail } from '../core/index.mjs';
+import { DiagnosticError, fail, TOOL_CWD } from '../core/index.mjs';
 import { analysisStartCommand } from '../lib/task-command.mjs';
 import { standaloneShell } from '../overlay/standalone.mjs';
 import { clientAsset } from '../overlay/client-assets.mjs';
@@ -106,7 +106,7 @@ export async function prepareAnalysisSession(argv) {
   const delivered = ir ? path.join(out, 'architecture.html') : null;
   let evidenceArgs = [];
   if (doc?.meta?.repository) {
-    const top = await execute('git', ['-C', root, 'rev-parse', '--show-toplevel']);
+    const top = await execute('git', ['-C', root, 'rev-parse', '--show-toplevel'], { cwd: TOOL_CWD });
     evidenceArgs = ['--repo-root', top.stdout.trim()];
   }
   const quality = options['--quality'] || doc?.meta?.quality_profile || 'standard';

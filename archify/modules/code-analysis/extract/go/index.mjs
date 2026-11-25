@@ -8,6 +8,7 @@ import { listFiles, snapshotTree, classifyRole, lineCount } from '../shared/file
 import { matcher } from '../shared/glob.mjs';
 import { describeRepository } from '../shared/git.mjs';
 import { fail } from '../shared/diagnostics.mjs';
+import { TOOL_CWD } from '../../core/index.mjs';
 
 export const id = 'go';
 export const REQUIRED_ROOT_MANIFEST = 'go.mod';
@@ -67,7 +68,7 @@ export function extract(root, config, { onCapture } = {}) {
   }
   const result = spawnSync(command, ['run', script], {
     input: JSON.stringify({ sources, module, languageVersion, goos: go.goos || process.env.GOOS || '', goarch: go.goarch || process.env.GOARCH || '', tags: go.tags || [], tests: go.tests !== false, stdlib: go.stdlib !== false }),
-    encoding: 'utf8', timeout: 120000, maxBuffer: 256 * 1024 * 1024,
+    cwd: TOOL_CWD, encoding: 'utf8', timeout: 120000, maxBuffer: 256 * 1024 * 1024,
     // Compile our helper with the host SDK. It prepares only needed SDK exports
     // in an empty directory when standard-library typing is enabled.
     // The analyzed module is never passed to go commands or downloaded.

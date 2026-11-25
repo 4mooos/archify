@@ -2,9 +2,10 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { toPosix } from './files.mjs';
+import { TOOL_CWD } from '../../core/index.mjs';
 
 function git(cwd, args) {
-  const result = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
+  const result = spawnSync('git', ['-C', path.resolve(cwd), ...args], { cwd: TOOL_CWD, encoding: 'utf8' });
   return result.status === 0 ? result.stdout.trim() : null;
 }
 

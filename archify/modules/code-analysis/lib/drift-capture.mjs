@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fail } from '../core/index.mjs';
+import { fail, TOOL_CWD } from '../core/index.mjs';
 
 const MAX_FILES = 50_000;
 const MAX_BYTES = 256 * 1024 * 1024;
@@ -12,8 +12,8 @@ const sha = /^[a-f0-9]{40}$/;
 const gitEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key)));
 
 function runGit(root, args, { maxBuffer = MAX_BLOB, input } = {}) {
-  const run = spawnSync('git', ['--no-replace-objects', '-C', root, ...args], {
-    env: { ...gitEnv, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '', GIT_TERMINAL_PROMPT: '0' },
+  const run = spawnSync('git', ['--no-replace-objects', '-C', path.resolve(root), ...args], {
+    cwd: TOOL_CWD, env: { ...gitEnv, GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '', GIT_TERMINAL_PROMPT: '0' },
     input, maxBuffer, timeout: 60_000, windowsHide: true,
   });
   if (run.status !== 0 || run.error) fail('drift/git-read', 'Could not read the pinned local Git objects.', {

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { readInside } from './evidence.mjs';
 import { questionCalls } from './question-calls.mjs';
 import { questionIncoming } from './question-incoming.mjs';
-import { fail } from '../core/index.mjs';
+import { fail, TOOL_CWD } from '../core/index.mjs';
 
 const hash = (text) => createHash('sha256').update(text).digest('hex');
 export const WORKFLOW = fileURLToPath(new URL('../docs/FUNCTION-ANALYSIS.md', import.meta.url));
@@ -27,8 +27,8 @@ export function questionScope(root, facts) {
       'Outside regions group repository-relative paths by their first directory (root files keep their names). These are path facts, not subsystem responsibilities.',
     ],
   };
-  const git = (cwd, args) => spawnSync('git', ['-C', cwd, ...args], {
-    encoding: 'utf8', timeout: 2000, maxBuffer: 16 * 1024 * 1024,
+  const git = (cwd, args) => spawnSync('git', ['-C', path.resolve(cwd), ...args], {
+    cwd: TOOL_CWD, encoding: 'utf8', timeout: 2000, maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1' },
   });
   try {

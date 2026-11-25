@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { fail } from '../../../core/index.mjs';
+import { fail, TOOL_CWD } from '../../../core/index.mjs';
 
 export const JSCPD_VERSION = '5.4.3';
 export const DUPLICATE_RULE = 'redundancy/duplicate-block';
@@ -91,7 +91,7 @@ export function analyzeDuplicates(graph, config, facts) {
   if (!EXTENSIONS[facts.repository?.language]) fail('duplicates/config-invalid', 'Duplicate detection supports JS/TS, Python, Java, Go and Rust analysis.', {
     subject: { language: facts.repository?.language }, supportedFixes: ['select ts, py, java, go or rust, or disable duplicate detection for this language'],
   });
-  const version = runTool(options, ['--version']);
+  const version = runTool(options, ['--version'], TOOL_CWD);
   if (version !== `jscpd ${JSCPD_VERSION}`) fail('duplicates/tool-version', `Expected jscpd ${JSCPD_VERSION}, received ${version || 'no version'}.`, {
     supportedFixes: [`select a jscpd ${JSCPD_VERSION} executable`],
   });

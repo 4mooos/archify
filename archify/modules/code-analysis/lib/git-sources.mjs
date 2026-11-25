@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { fail } from '../core/index.mjs';
+import { fail, TOOL_CWD } from '../core/index.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const MAX_BYTES = 128 * 1024 * 1024;
@@ -24,7 +24,7 @@ export async function git(cwd, args, { input = null, noLazyFetch = false } = {})
       const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' };
       if (noLazyFetch) env.GIT_NO_LAZY_FETCH = '1';
       for (const key of ['GIT_DIR', 'GIT_COMMON_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete env[key];
-      const child = execFile('git', ['--no-replace-objects', '--literal-pathspecs', '-c', 'credential.interactive=false', '-C', cwd, ...args], { encoding: 'buffer', maxBuffer: MAX_BYTES, windowsHide: true, env }, (error, stdout) => {
+      const child = execFile('git', ['--no-replace-objects', '--literal-pathspecs', '-c', 'credential.interactive=false', '-C', path.resolve(cwd), ...args], { cwd: TOOL_CWD, encoding: 'buffer', maxBuffer: MAX_BYTES, windowsHide: true, env }, (error, stdout) => {
         clearTimeout(timeout);
         if (error) { error.killed ||= timedOut; reject(error); } else resolve(stdout);
       });
@@ -32,7 +32,7 @@ export async function git(cwd, args, { input = null, noLazyFetch = false } = {})
       // its launcher exits, otherwise a timed-out fetch can keep its lock alive.
       const timeout = setTimeout(() => {
         timedOut = true;
-        if (process.platform === 'win32') execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => child.kill());
+        if (process.platform === 'win32') execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { cwd: TOOL_CWD, windowsHide: true }, () => child.kill());
         else child.kill();
       }, 120000);
       child.stdin.on('error', () => {}); child.stdin.end(input);
